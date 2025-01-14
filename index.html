@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sliding Puzzle CAPTCHA</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+      display: block;
+      margin: 20px auto;
+    }
+    #message {
+      text-align: center;
+      font-size: 1.2rem;
+      margin-top: 10px;
+    }
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #pieceCanvas {
+      position: absolute;
+    }
+    #pieceCanvas.green-border::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px solid green;
+      pointer-events: none; /* Ensure the pseudo-element does not interfere with dragging */
+    }
+    #puzzleContainer {
+      position: relative;
+      display: inline-block;
+      overflow: hidden; /* Hide overflow to crop pieceCanvas */
+    }
+    #reloadButton {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="puzzleContainer">
+    <canvas id="puzzleCanvas" width="300" height="300"></canvas>
+    <canvas id="pieceCanvas" width="50" height="50"></canvas>
+    <canvas id="sliderCanvas" width="300" height="50"></canvas>
+  </div>
+  <div id="message">Slide the piece to complete the puzzle!</div>
+  <button id="reloadButton">Reload Puzzle</button>
+  <script src="script.js"></script>
+</body>
+</html>
