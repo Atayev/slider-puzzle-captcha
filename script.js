@@ -1,15 +1,12 @@
 const puzzleCanvas = document.getElementById('puzzleCanvas');
 const pieceCanvas = document.getElementById('pieceCanvas');
-const sliderCanvas = document.getElementById('sliderCanvas');
 const puzzleCtx = puzzleCanvas.getContext('2d');
 const pieceCtx = pieceCanvas.getContext('2d');
-const sliderCtx = sliderCanvas.getContext('2d');
 
 const pieceSize = 50; // Size of the sliding piece
 let missingPiece = { x: 0, y: 0 }; // Blank part of the main canvas
 let piecePosition = { x: 0, y: 0 }; // Starting position of the sliding piece
 let dragging = false;
-let sliderDragging = false;
 let firstAttemptFailed = false;
 let puzzleSolved = false; 
 
@@ -31,10 +28,6 @@ image.onload = () => {
   drawPiece();
 };
 
-arrowImage.onload = () => {
-  drawSlider();
-};
-
 function getRandomPosition(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
@@ -53,32 +46,86 @@ function initializePositions() {
   pieceCanvas.style.top = `${piecePosition.y}px`;
 }
 
+function drawPuzzlePiece(ctx, x, y, size, inward = true) {
+  const path = new Path2D();
+  const tabSize = size / 4;
+  const curveSize = size / 6;
+
+  path.moveTo(x, y); // Start at the top-left corner
+
+  // Top edge
+  path.lineTo(x + size / 3, y);
+  if (inward) {
+    path.quadraticCurveTo(x + size / 2, y - curveSize, x + (2 * size) / 3, y);
+  } else {
+    path.quadraticCurveTo(x + size / 2, y + curveSize, x + (2 * size) / 3, y);
+  }
+  path.lineTo(x + size, y);
+
+  // Right edge
+  path.lineTo(x + size, y + size / 3);
+  if (inward) {
+    path.quadraticCurveTo(x + size + curveSize, y + size / 2, x + size, y + (2 * size) / 3);
+  } else {
+    path.quadraticCurveTo(x - curveSize, y + size / 2, x + size, y + (2 * size) / 3);
+  }
+  path.lineTo(x + size, y + size);
+
+  // Bottom edge
+  path.lineTo(x + (2 * size) / 3, y + size);
+  if (inward) {
+    path.quadraticCurveTo(x + size / 2, y + size + curveSize, x + size / 3, y + size);
+  } else {
+    path.quadraticCurveTo(x + size / 2, y - curveSize, x + size / 3, y + size);
+  }
+  path.lineTo(x, y + size);
+
+  // Left edge
+  path.lineTo(x, y + (2 * size) / 3);
+  if (inward) {
+    path.quadraticCurveTo(x - curveSize, y + size / 2, x, y + size / 3);
+  } else {
+    path.quadraticCurveTo(x + curveSize, y + size / 2, x, y + size / 3);
+  }
+  path.lineTo(x, y);
+
+  ctx.save();
+  ctx.clip(path); // Clip to the puzzle shape
+  ctx.drawImage(image, x, y, size, size, x, y, size, size); // Draw the image within the puzzle shape
+  ctx.restore(); // Restore the drawing context
+}
+
 function drawPuzzle() {
   puzzleCtx.clearRect(0, 0, puzzleCanvas.width, puzzleCanvas.height);
   puzzleCtx.drawImage(image, 0, 0, puzzleCanvas.width, puzzleCanvas.height);
+
+  // Draw the missing piece as a puzzle shape
+  drawPuzzlePiece(puzzleCtx, missingPiece.x, missingPiece.y, pieceSize, true);
   puzzleCtx.clearRect(missingPiece.x, missingPiece.y, pieceSize, pieceSize);
+  puzzleCtx.restore(); // Restore the drawing context
 }
 
 function drawPiece() {
   pieceCtx.clearRect(0, 0, pieceCanvas.width, pieceCanvas.height);
   const scaleX = image.width / puzzleCanvas.width;
   const scaleY = image.height / puzzleCanvas.height;
+
+  drawPuzzlePiece(pieceCtx, 0, 0, pieceSize, false);
+
   pieceCtx.drawImage(
     image,
     missingPiece.x * scaleX,
     missingPiece.y * scaleY,
     pieceSize * scaleX,
     pieceSize * scaleY,
-    0, 0,
-    pieceSize, pieceSize
+    0,
+    0,
+    pieceSize,
+    pieceSize
   );
+  pieceCtx.restore(); // Restore the drawing context
   pieceCanvas.style.left = `${piecePosition.x}px`;
   pieceCanvas.style.top = `${piecePosition.y}px`;
-}
-
-function drawSlider(position = 0) {
-  sliderCtx.clearRect(0, 0, sliderCanvas.width, sliderCanvas.height);
-  sliderCtx.drawImage(arrowImage, position, 0, 50, 50);
 }
 
 function checkSolution() {
@@ -89,9 +136,6 @@ function checkSolution() {
   if (isXCorrect && isYCorrect) {
     puzzleSolved = true; // Mark puzzle as solved
     pieceCanvas.style.border = '2px solid green'; // Change border to green
-    const solvedPosition = (piecePosition.x / (puzzleCanvas.width - pieceSize)) * (sliderCanvas.width - 50);
-    arrowImage.src = 'check.png'; // Change arrow image to checkmark
-    drawSlider(solvedPosition); // Redraw slider with the check image in place
     setTimeout(() => {
       pieceCanvas.style.border = 'none'; // Remove border after a short delay
       reloadImage();
@@ -108,60 +152,46 @@ function checkSolution() {
   }
 }
 
-function resetSlider() {
-  if (!puzzleSolved) { // Only reset the slider if the puzzle is not solved
-    sliderCtx.clearRect(0, 0, sliderCanvas.width, sliderCanvas.height);
-    arrowImage.src = 'arrow-right.png'; // Reset arrow image
-    drawSlider(0); // Reset slider position
-    piecePosition.x = 0; // Reset piece position
-    pieceCanvas.style.left = `${piecePosition.x}px`;
-    drawPiece();
-  }
-}
-
 function reloadImage() {
   fetch('https://randomfox.ca/floof/')
     .then((res) => res.json())
     .then((data) => {
       image.src = data.image;
       puzzleSolved = false; // Reset puzzle state
-      resetSlider();
+      initializePositions();
+      drawPuzzle();
+      drawPiece();
     })
     .catch((err) => console.error('Failed to fetch image', err));
 }
 
-// Handle drag events for the slider
-sliderCanvas.addEventListener('mousedown', (e) => {
-  const rect = sliderCanvas.getBoundingClientRect();
+// Handle drag events for the piece
+pieceCanvas.addEventListener('mousedown', (e) => {
+  const rect = pieceCanvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  if (x >= 0 && x <= 50 && y >= 0 && y <= 50) {
-    sliderDragging = true;
+  if (x >= 0 && x <= pieceSize && y >= 0 && y <= pieceSize) {
+    dragging = true;
   }
 });
 
 document.addEventListener('mousemove', (e) => {
-  if (sliderDragging && !puzzleSolved) {
-    const rect = sliderCanvas.getBoundingClientRect();
-    let newX = e.clientX - rect.left - 25; // Center the arrow
-    newX = Math.max(0, Math.min(newX, sliderCanvas.width - 50)); // Ensure the arrow stays within the slider
-    sliderCtx.clearRect(0, 0, sliderCanvas.width, sliderCanvas.height);
-    sliderCtx.drawImage(arrowImage, newX, 0, 50, 50);
-
-    // Update the piece position based on the slider
-    piecePosition.x = (newX / (sliderCanvas.width - 50)) * (puzzleCanvas.width - pieceSize);
-    piecePosition.y = missingPiece.y; // Ensure the piece stays in the same row as the missing piece
+  if (dragging && !puzzleSolved) {
+    const rect = puzzleCanvas.getBoundingClientRect();
+    let newX = e.clientX - rect.left - pieceSize / 2;
+    let newY = e.clientY - rect.top - pieceSize / 2;
+    newX = Math.max(0, Math.min(newX, puzzleCanvas.width - pieceSize));
+    newY = Math.max(0, Math.min(newY, puzzleCanvas.height - pieceSize));
+    piecePosition.x = newX;
+    piecePosition.y = newY;
     pieceCanvas.style.left = `${piecePosition.x}px`;
     pieceCanvas.style.top = `${piecePosition.y}px`;
-    drawPiece();
   }
 });
 
 document.addEventListener('mouseup', (e) => {
-  if (sliderDragging) {
-    sliderDragging = false;
-    if (!puzzleSolved) {
-      checkSolution();
-    }
+  if (dragging) {
+    dragging = false;
+    checkSolution();
   }
 });
